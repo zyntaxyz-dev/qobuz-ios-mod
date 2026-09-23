@@ -133,7 +133,7 @@ static void QZDumpUserDefaults(NSString* tag, BOOL force){
          [kl containsString:@"trial"]||[kl containsString:@"offer"]||[kl containsString:@"entitle"]||
          [kl containsString:@"qobuz"]||[kl containsString:@"credential"]){
         id v = all[k];
-        NSString* vs = [v isKindOfClass:[NSString class]] && [k lowercaseString containsString:@"token"] ? (id)QZRedact(v) : [v description];
+        NSString* vs = ([v isKindOfClass:[NSString class]] && [[k lowercaseString] containsString:@"token"]) ? (id)QZRedact(v) : [v description];
         if(vs.length > 300) vs = [[vs substringToIndex:300] stringByAppendingString:@"…(trunc)"];
         hits[k] = vs;
       }
