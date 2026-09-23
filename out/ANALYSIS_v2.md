@@ -40,3 +40,11 @@
 1. Exportar vía Filza y custodiar: `receipt_timer_*.bin` + `qobuz_hook.log` completo (ya en `logs/` local).
 2. Ventana de compra con cuenta Qobuz nueva (+ tester sandbox nuevo si Apple lo exige): v2 ya instalado captura `productsResponse` (precio/producto real), `updatedTransactions`/SK2 `updates`, y el POST a `transactionSubscribed` con su respuesta.
 3. v3 (solo tras 2): filtro de ruido de imágenes, hook `uploadTask`, presencia-en-keychain, y — si el replay de sesión funciona — PoC E2.
+
+## 4. Addendum — Path B: Subscribe sin compra (cuenta nueva, sin sheet de Apple)
+
+- Observado: en cuenta nueva, tap en `Subscribe` (sin precio) otorga la suscripción directamente — sin sheet, sin `productsResponse` (explica su ausencia en el log: nunca existió).
+- Mecanismo hipotético líder (consistente con todo lo anterior): el tap no compra sino que **envía el receipt al backend** (`POST /appStore/transactionSubscribed` con el `sandboxReceipt`, que viene cargado de historial: entitlement CA vigente + tx US verificada + 21 SK1 pendientes) → Qobuz valida contra Apple sandbox → emite credential. Sin productos que resolver, no hay sheet.
+- Soporte estático: rama `Matching offer found for product id:` vs `No offer found matching the app store product identifiers:` en `OffersViewModel`, y símbolo Swift `validateTransaction(with:ModelRaw, CredentialContainer, UInt64)` — la validación ata transacción↔credencial.
+- Evidencia que lo confirma o refuta: el tail del log en el minuto del tap. Si aparece `NET POST …/appStore/transactionSubscribed -> 200` sin `SK1`/`SK2` previo → Path B confirmado y el exploit es rejugable sin Apple. Si no hay POST → el grant es local y hay que buscar el flag.
+- El `receipt_timer_1790181402.bin` (25 KB, verificado en Filza) es la materia prima del replay: si el backend acepta receipt-por-POST, ese archivo es la llave E2.
