@@ -12,7 +12,7 @@
 #import <CommonCrypto/CommonDigest.h>
 
 // Estado de hooks (visible en heartbeat)
-static BOOL gNetOK = NO, gUpOK = NO, gTapOK = NO;
+static BOOL gNetOK = NO, gUpOK = NO, gTapOK = NO, gVcOK = NO;
 
 #pragma mark - Base logger
 
@@ -277,6 +277,21 @@ static BOOL qz_sendAction(id self, SEL _cmd, SEL action, id to, id from, UIEvent
   return gOrigSendAction(self, _cmd, action, to, from, event);
 }
 
+#pragma mark - Sheet marker (v4: paywall y sheets de Apple son UIKit/SwiftUI presentados)
+
+typedef void (*QZPresentVC)(id, SEL, UIViewController*, BOOL, void(^)(void));
+static QZPresentVC gOrigPresentVC = NULL;
+static void qz_presentVC(id self, SEL _cmd, UIViewController* vc, BOOL animated, void(^comp)(void)){
+  @try{
+    NSString* cn = vc ? NSStringFromClass([vc class]) : @"(nil)";
+    NSString* from = NSStringFromClass([self class]);
+    // Solo presentaciones interesantes + resumen; los sheets son infrecuentes y de alta señal.
+    QZLog(@"PRESENT %@ from=%@ animated=%d", cn, from, animated);
+  }@catch(...){}
+  if(!gOrigPresentVC) return;
+  gOrigPresentVC(self, _cmd, vc, animated, comp);
+}
+
 static BOOL QZExchange(Class c, SEL s, IMP repl, IMP* outOrig){
   @try{
     if(!c) return NO;
@@ -413,8 +428,8 @@ static void QZHeartbeat(void){
     @try{ pending = [[SKPaymentQueue defaultQueue] transactions].count; }@catch(...){}
     NSURL* rurl = [[NSBundle mainBundle] appStoreReceiptURL];
     NSDictionary* at = rurl ? [[NSFileManager defaultManager] attributesOfItemAtPath:rurl.path error:nil] : nil;
-    QZLog(@"alive pendingSK1=%lu receipt=%@B mtime=%@ imgSkipped=%lu hooks(net=%d,up=%d,tap=%d)", (unsigned long)pending,
-          at ? at[NSFileSize] : @"?", at ? at[NSFileModificationDate] : @"?", gNoiseCount, gNetOK, gUpOK, gTapOK);
+    QZLog(@"alive pendingSK1=%lu receipt=%@B mtime=%@ imgSkipped=%lu hooks(net=%d,up=%d,tap=%d,vc=%d)", (unsigned long)pending,
+          at ? at[NSFileSize] : @"?", at ? at[NSFileModificationDate] : @"?", gNoiseCount, gNetOK, gUpOK, gTapOK, gVcOK);
     if(at && (!gLastReceiptMtime || ![at[NSFileModificationDate] isEqualToDate:gLastReceiptMtime])){
       QZSnapshotReceipt(@"timer"); // el receipt cambió: preservar
     }
@@ -427,7 +442,7 @@ static void QZHeartbeat(void){
 
 __attribute__((constructor)) static void qz_init(void){
   @try{
-    QZLog(@"=== QobuzLogger v3 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
+    QZLog(@"=== QobuzLogger v4 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
     QZLog(@"receiptURL=%@", [[[NSBundle mainBundle] appStoreReceiptURL] path]);
 
     // 1. SK1 observer (fallback + conteo de pendientes)
@@ -472,7 +487,14 @@ __attribute__((constructor)) static void qz_init(void){
       }
     }@catch(...){}
     if(!gTapOK) QZLog(@"TAP-FALLBACK sendAction not hooked");
-
+    // 2d. Sheet marker (v4): el paywall SwiftUI no usa target-action; los sheets sí dejan huella aquí
+    @try{
+      IMP o = NULL;
+      if(QZExchange([UIViewController class], @selector(presentViewController:animated:completion:), (IMP)qz_presentVC, &o)){
+        gOrigPresentVC = (QZPresentVC)o; gVcOK = YES;
+      }
+    }@catch(...){}
+    if(!gVcOK) QZLog(@"VC-FALLBACK presentViewController not hooked");
     // 3. SKProductsRequest: IDs al init + proxy de respuesta
     @try{
       Class c = NSClassFromString(@"SKProductsRequest");
@@ -500,6 +522,6 @@ __attribute__((constructor)) static void qz_init(void){
         QZLog(@"heartbeat armed (60s). Reproduce flujo y observa el log crecer.");
       }@catch(...){}
     });
-    QZLog(@"=== QobuzLogger v3 ready (net=%d up=%d tap=%d) ===", gNetOK, gUpOK, gTapOK);
+    QZLog(@"=== QobuzLogger v4 ready (net=%d up=%d tap=%d vc=%d) ===", gNetOK, gUpOK, gTapOK, gVcOK);
   }@catch(...){}
 }

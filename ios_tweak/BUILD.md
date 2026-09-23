@@ -1,5 +1,9 @@
 # BUILD — QobuzLogger.dylib (jailed, ESign)
 
+## v4 (actual): marcador de sheets
+- `PRESENT <VC> from=<VC>`: hook a `UIViewController presentViewController:animated:completion:`. El botón Subscribe del paywall es SwiftUI (jamás toca `sendAction`), pero el paywall y el sheet de Apple sí se presentan como VCs — esta es la marca temporal del tap/flujo de compra. Heartbeat incluye `vc=`.
+- Resto igual que v3 (red real, uploadTask, keychain probe, filtro de ruido, SK2 Swift, receipt watcher).
+
 ## Compilación desde Windows vía GitHub Actions (recomendado)
 1. `git add ios_tweak/QobuzLogger.m .github/workflows/build-dylib.yml ios_tweak/build.sh && git commit && git push`.
 2. GitHub -> Actions -> `build-dylib` -> Run o auto por push -> descarga artifact `QobuzLogger-dylib`.
