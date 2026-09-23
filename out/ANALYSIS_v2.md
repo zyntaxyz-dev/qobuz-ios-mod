@@ -90,3 +90,9 @@ Ordenado por valor, ninguno requiere evento de compra:
 - **Cero `/appStore/*`**: el POST a `transactionSubscribed` ocurre DESPUÉS del corte (log termina en el `SK2 verified` 20:17:58; la validación+POST de la app sigue en segundos). Artefacto pendiente: tail de 2–3 min post-compra.
 - Colateral: remote-config trae `subscription_external_link=true`, `trial_banner=0`, `player_wake_mode=local` (flags de paywall server-side).
 - `pendingSK1=20` estable; receipt presente al init (24875B, reescrito 20:16:00).
+
+## 11. Paywall cuenta nueva (11:37 local): precio en texto, no en botón
+- El paywall muestra `Free for 30 days, then USD 16.99/month` + `Start your 30-day free trial`, y el Hi-Res con tracks completos funciona en la cuenta nueva.
+- Lectura: el 16.99 es **texto de oferta server-driven** (viene de `/appStore/offerEligibility`, backend Qobuz), NO precio de `SKProduct` — el botón no lleva precio porque `productsResponse` nunca resolvió productos de Apple. Doble fuente confirmada: backend sí responde oferta, StoreKit no devuelve productos.
+- Esto explica por qué el flujo completa la compra igual (el producto se compra por ID directo: `20190214.studio.us` en el tx SK2) sin mostrar precio Apple en ningún sheet.
+- Pendiente sin cambios: tail post-compra con el POST `transactionSubscribed` (formato exacto a rejugear para E2).
