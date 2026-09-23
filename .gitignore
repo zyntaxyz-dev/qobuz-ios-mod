@@ -19,6 +19,9 @@ logs/
 phone-files/
 *.bin
 
+# Exports de sesión (tokens reales — jamás commitear)
+session_export*.json
+
 # OS / editores
 .DS_Store
 Thumbs.db

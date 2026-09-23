@@ -91,6 +91,11 @@ Ordenado por valor, ninguno requiere evento de compra:
 - Colateral: remote-config trae `subscription_external_link=true`, `trial_banner=0`, `player_wake_mode=local` (flags de paywall server-side).
 - `pendingSK1=20` estable; receipt presente al init (24875B, reescrito 20:16:00).
 
+## 13. Corrección de rumbo: el POST no es load-bearing (2026-09-23)
+- Corrección honesta: vendí renewals acelerados, pero el expiry observado de Apple es +24h (20:17:50→09-24), no minutos. Esperar 4 min podía no traer nada. Los renewals llegarán en horario Apple, no nuestro.
+- Sin el POST no se cae nada. Vía E2-trasplante (v5): el dylib ya corre dentro de la app con su mismo keychain — lee los VALORES de `accessAuthToken/refreshAuthToken` y los guarda en `Documents/session_export_*.json` (init + cada rotación). Respaldado fuera, ese archivo + un restaurador v6 (reinyectar pre-login post-expiración) es el PoC E2 completo sin depender del formato del POST.
+- Cobertura verificable: `tasksTotal` en el heartbeat demuestra si vemos todo el tráfico o si hay vía no hookeada. Diagnóstico, no suposición.
+
 ## 11. Paywall cuenta nueva (11:37 local): precio en texto, no en botón
 - El paywall muestra `Free for 30 days, then USD 16.99/month` + `Start your 30-day free trial`, y el Hi-Res con tracks completos funciona en la cuenta nueva.
 - Lectura: el 16.99 es **texto de oferta server-driven** (viene de `/appStore/offerEligibility`, backend Qobuz), NO precio de `SKProduct` — el botón no lleva precio porque `productsResponse` nunca resolvió productos de Apple. Doble fuente confirmada: backend sí responde oferta, StoreKit no devuelve productos.

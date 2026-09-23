@@ -1,5 +1,10 @@
 # BUILD — QobuzLogger.dylib (jailed, ESign)
 
+## v5 (actual): exportador de sesión E2 + cobertura total
+- `EXPORT[init|change] n=… file=session_export_<tag>_<epoch>.json`: lee los VALORES del keychain propio (solo servicios `*qobuz*` y `auth`), base64 a `Documents/`. Al init (baseline) y cada vez que el keychain cambia (rotación por compra/login). El log jamás lleva valores, solo conteos.
+- **Regla de manejo**: ese JSON equivale a la sesión. Respaldar fuera del dispositivo y borrarlo de `Documents` de inmediato. Ignorado en git (`session_export*.json`). V6 (restaurador) lo reinyectará post-expiración para el PoC E2.
+- `tasksTotal=N` en el heartbeat: contador de TODAS las tasks creadas (vs `imgSkipped` filtradas). Si `tasksTotal` crece y no hay líneas `NET`, el tráfico va por una vía no hookeada (diagnóstico de cobertura, no suposición).
+
 ## v4 (actual): marcador de sheets
 - `PRESENT <VC> from=<VC>`: hook a `UIViewController presentViewController:animated:completion:`. El botón Subscribe del paywall es SwiftUI (jamás toca `sendAction`), pero el paywall y el sheet de Apple sí se presentan como VCs — esta es la marca temporal del tap/flujo de compra. Heartbeat incluye `vc=`.
 - Resto igual que v3 (red real, uploadTask, keychain probe, filtro de ruido, SK2 Swift, receipt watcher).

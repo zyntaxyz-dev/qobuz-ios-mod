@@ -13,6 +13,8 @@
 
 // Estado de hooks (visible en heartbeat)
 static BOOL gNetOK = NO, gUpOK = NO, gTapOK = NO, gVcOK = NO;
+// Cobertura: prueba de que vemos TODO el tráfico (v5)
+static unsigned long gTotalTasks = 0;
 
 #pragma mark - Base logger
 
@@ -180,6 +182,7 @@ static void QZLogResponse(NSURLRequest* req, NSData* d, NSURLResponse* r){
 
 static QZDataTaskCH gOrigDataTaskCH = NULL;
 static NSURLSessionDataTask* qz_dataTaskCH(id self, SEL _cmd, NSURLRequest* req, void(^comp)(NSData*,NSURLResponse*,NSError*)){
+  __sync_fetch_and_add(&gTotalTasks, 1);
   if(!gOrigDataTaskCH) return nil;
   if(QZIsNoise(req.URL)){ __sync_fetch_and_add(&gNoiseCount, 1); return gOrigDataTaskCH(self, _cmd, req, comp); }
   @try{
@@ -200,6 +203,7 @@ static NSURLSessionDataTask* qz_dataTaskCH(id self, SEL _cmd, NSURLRequest* req,
 typedef NSURLSessionDataTask* (*QZDataTaskPlain)(id, SEL, NSURLRequest*);
 static QZDataTaskPlain gOrigDataTaskPlain = NULL;
 static NSURLSessionDataTask* qz_dataTaskPlain(id self, SEL _cmd, NSURLRequest* req){
+  __sync_fetch_and_add(&gTotalTasks, 1);
   if(!gOrigDataTaskPlain) return nil;
   if(QZIsNoise(req.URL)){ __sync_fetch_and_add(&gNoiseCount, 1); return gOrigDataTaskPlain(self, _cmd, req); }
   @try{
@@ -213,6 +217,7 @@ static NSURLSessionDataTask* qz_dataTaskPlain(id self, SEL _cmd, NSURLRequest* r
 typedef NSURLSessionUploadTask* (*QZUploadData)(id, SEL, NSURLRequest*, NSData*, void(^)(NSData*,NSURLResponse*,NSError*));
 static QZUploadData gOrigUploadData = NULL;
 static NSURLSessionUploadTask* qz_uploadData(id self, SEL _cmd, NSURLRequest* req, NSData* body, void(^comp)(NSData*,NSURLResponse*,NSError*)){
+  __sync_fetch_and_add(&gTotalTasks, 1);
   if(!gOrigUploadData) return nil;
   if(QZIsNoise(req.URL)) return gOrigUploadData(self, _cmd, req, body, comp);
   @try{
@@ -234,6 +239,7 @@ static NSURLSessionUploadTask* qz_uploadData(id self, SEL _cmd, NSURLRequest* re
 typedef NSURLSessionUploadTask* (*QZUploadFile)(id, SEL, NSURLRequest*, NSURL*, void(^)(NSData*,NSURLResponse*,NSError*));
 static QZUploadFile gOrigUploadFile = NULL;
 static NSURLSessionUploadTask* qz_uploadFile(id self, SEL _cmd, NSURLRequest* req, NSURL* furl, void(^comp)(NSData*,NSURLResponse*,NSError*)){
+  __sync_fetch_and_add(&gTotalTasks, 1);
   if(!gOrigUploadFile) return nil;
   if(QZIsNoise(req.URL)) return gOrigUploadFile(self, _cmd, req, furl, comp);
   @try{
@@ -385,6 +391,56 @@ static void qz_setDelegate(id self, SEL _cmd, id d){
 - (void)paymentQueue:(SKPaymentQueue*)q restoreCompletedTransactionsFailedWithError:(NSError*)e{ QZLog(@"SK1 restore fail %@", e); }
 @end
 
+#pragma mark - Session exporter (v5: trasplante E2 — valores solo al archivo, jamás al log)
+
+// Escribe Documents/session_export_<tag>_<epoch>.json con los VALORES de la
+// credencial Qobuz (base64). El log solo registra n items + nombre de archivo.
+// ADVERTENCIA real: ese JSON equivale a la sesión. Mover fuera del dispositivo
+// y borrarlo de Documents en cuanto se respalde. Nunca se commitea (*.json ignorado).
+static void QZExportSession(NSString* tag){
+  @try{
+    NSMutableArray* out = [NSMutableArray array];
+    for(id cls in @[(id)kSecClassGenericPassword, (id)kSecClassInternetPassword]){
+      NSDictionary* q = @{ (id)kSecClass: cls,
+                           (id)kSecReturnData: @YES,
+                           (id)kSecReturnAttributes: @YES,
+                           (id)kSecMatchLimit: (__bridge id)kSecMatchLimitAll };
+      CFTypeRef res = NULL;
+      OSStatus st = SecItemCopyMatching((__bridge CFDictionaryRef)q, &res);
+      if(st != errSecSuccess || res == NULL) continue;
+      @try{
+        for(NSDictionary* a in (__bridge NSArray*)res){
+          NSString* svc = [NSString stringWithFormat:@"%@", a[(id)kSecAttrService] ?: a[(id)kSecAttrServer] ?: @"?"];
+          NSString* sl = svc.lowercaseString;
+          if([sl containsString:@"qobuz"] || [svc isEqualToString:@"auth"]){
+            NSData* v = a[(id)kSecValueData];
+            if([v isKindOfClass:[NSData class]] && v.length > 0){
+              [out addObject:@{ @"service": svc,
+                                @"account": [NSString stringWithFormat:@"%@", a[(id)kSecAttrAccount] ?: @"?"],
+                                @"value_b64": [v base64EncodedStringWithOptions:0],
+                                @"len": @(v.length) }];
+            }
+          }
+        }
+      }@catch(...){}
+      CFRelease(res);
+    }
+    if(!out.count){ QZLog(@"EXPORT[%@] no qobuz items", tag); return; }
+    NSDictionary* doc = @{ @"bundle": [[NSBundle mainBundle] bundleIdentifier] ?: @"?",
+                           @"exported_at": @([[NSDate date] timeIntervalSince1970]),
+                           @"items": out };
+    NSError* je = nil;
+    NSData* j = [NSJSONSerialization dataWithJSONObject:doc options:0 error:&je];
+    if(!j){ QZLog(@"EXPORT[%@] json fail %@", tag, je); return; }
+    NSString* dst = [QZDocDir() stringByAppendingPathComponent:
+      [NSString stringWithFormat:@"session_export_%@_%.0f.json", tag, [[NSDate date] timeIntervalSince1970]]];
+    NSError* we = nil;
+    [j writeToFile:dst options:NSDataWritingAtomic error:&we];
+    QZLog(@"EXPORT[%@] n=%lu bytes=%lu file=%@  <-- RESPALDAR FUERA Y BORRAR", tag,
+          (unsigned long)out.count, (unsigned long)j.length, [dst lastPathComponent]);
+  }@catch(...){ QZLog(@"EXPORT[%@] exception", tag); }
+}
+
 #pragma mark - Keychain presence probe (v3: solo metadatos, jamás secretos)
 
 static NSString* gKeychainSig = nil;
@@ -414,9 +470,11 @@ static void QZKeychainProbe(NSString* tag, BOOL force){
       }
     }
     NSString* sig = [[items sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@";"];
-    if(!force && gKeychainSig && [sig isEqualToString:gKeychainSig]) return; // sin cambios
+    BOOL changed = (gKeychainSig != nil) && ![sig isEqualToString:gKeychainSig];
+    if(!force && !changed) return; // sin cambios
     gKeychainSig = [sig copy];
     QZLog(@"KEYCHAIN[%@] n=%lu %@", tag, (unsigned long)items.count, sig);
+    if(changed) QZExportSession(@"change"); // credencial nueva/rotada: respaldar valores
   }@catch(...){ QZLog(@"KEYCHAIN[%@] exception", tag); }
 }
 
@@ -428,8 +486,8 @@ static void QZHeartbeat(void){
     @try{ pending = [[SKPaymentQueue defaultQueue] transactions].count; }@catch(...){}
     NSURL* rurl = [[NSBundle mainBundle] appStoreReceiptURL];
     NSDictionary* at = rurl ? [[NSFileManager defaultManager] attributesOfItemAtPath:rurl.path error:nil] : nil;
-    QZLog(@"alive pendingSK1=%lu receipt=%@B mtime=%@ imgSkipped=%lu hooks(net=%d,up=%d,tap=%d,vc=%d)", (unsigned long)pending,
-          at ? at[NSFileSize] : @"?", at ? at[NSFileModificationDate] : @"?", gNoiseCount, gNetOK, gUpOK, gTapOK, gVcOK);
+    QZLog(@"alive pendingSK1=%lu receipt=%@B mtime=%@ imgSkipped=%lu tasksTotal=%lu hooks(net=%d,up=%d,tap=%d,vc=%d)", (unsigned long)pending,
+          at ? at[NSFileSize] : @"?", at ? at[NSFileModificationDate] : @"?", gNoiseCount, gTotalTasks, gNetOK, gUpOK, gTapOK, gVcOK);
     if(at && (!gLastReceiptMtime || ![at[NSFileModificationDate] isEqualToDate:gLastReceiptMtime])){
       QZSnapshotReceipt(@"timer"); // el receipt cambió: preservar
     }
@@ -442,7 +500,7 @@ static void QZHeartbeat(void){
 
 __attribute__((constructor)) static void qz_init(void){
   @try{
-    QZLog(@"=== QobuzLogger v4 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
+    QZLog(@"=== QobuzLogger v5 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
     QZLog(@"receiptURL=%@", [[[NSBundle mainBundle] appStoreReceiptURL] path]);
 
     // 1. SK1 observer (fallback + conteo de pendientes)
@@ -503,10 +561,11 @@ __attribute__((constructor)) static void qz_init(void){
       if(QZExchange(c, @selector(setDelegate:), (IMP)qz_setDelegate, &o2)) gOrigSetDelegate = (QZSetDelegate)o2;
     }@catch(...){ QZLog(@"IAP hook fail"); }
 
-    // 4. Baseline: receipt + defaults + keychain (solo presencia)
+    // 4. Baseline: receipt + defaults + keychain (solo presencia) + export inicial
     QZSnapshotReceipt(@"init");
     QZDumpUserDefaults(@"init", YES);
     QZKeychainProbe(@"init", YES);
+    QZExportSession(@"init");
 
     // 5. StoreKit 2 listener (Swift, símbolo opcional: dlsym, sin link duro)
     @try{
@@ -522,6 +581,6 @@ __attribute__((constructor)) static void qz_init(void){
         QZLog(@"heartbeat armed (60s). Reproduce flujo y observa el log crecer.");
       }@catch(...){}
     });
-    QZLog(@"=== QobuzLogger v4 ready (net=%d up=%d tap=%d vc=%d) ===", gNetOK, gUpOK, gTapOK, gVcOK);
+    QZLog(@"=== QobuzLogger v5 ready (net=%d up=%d tap=%d vc=%d) ===", gNetOK, gUpOK, gTapOK, gVcOK);
   }@catch(...){}
 }
