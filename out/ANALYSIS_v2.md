@@ -52,8 +52,7 @@
 ## 5. Correlación receipt reescrito ↔ stream SK2 (comparativa binaria 2026-09-23)
 - `phone-files/receipt_timer_1790181402.bin` (24864B, sha `9e82f34d…`, mtime 16:35:43) vs `phone-files/sandboxReceipt` (24894B, sha `723d0c0e…`, mtime 16:38:46): **el receipt cambió (+30B) 3s después** de `SK2 verified …16:38:43`. Ambos PKCS#7 (`30 82 61…`). Lectura: la entrega del stream SK2 dispara refresh del receipt — el receipt es un documento vivo, no un snapshot; cada copia timestamped vale por su momento.
 
-## 6. Segunda sesión (relaunch 16:45:53, mismo contenedor) — deltas
-- `pendingSK1`: **21 → 0**. La cola de 21 transacciones sin finalizar NO sobrevivió al relaunch (Apple la purgó o el delivery SK2 las cerró). Revisión E1: no se puede contar con acumulación en cola; la ventana de observación es la sesión viva.
+## 6. Segunda sesión (relaunch 16:45:53, mismo contenedor) — deltas- `pendingSK1`: **21 → 0**. La cola de 21 transacciones sin finalizar NO sobrevivió al relaunch (Apple la purgó o el delivery SK2 las cerró). Revisión E1: no se puede contar con acumulación en cola; la ventana de observación es la sesión viva.
 - `RECEIPT[init]` ahora presente (24894B, sha `723d0c0e…` = el `sandboxReceipt` de `phone-files/`) + copia `receipt_init_1790181954.bin`. El watcher cubre ambos casos (missing→copy, present→copy).
 - **Cero `productsRequest`** en esta sesión: la consulta de productos (US+DE) es disparada por la vista del paywall, no por el launch. Para capturar `productsResponse` hay que abrir el paywall con el logger vivo.
 - Entitlement CA persiste (`count=1`). Ventana de tap aún no capturada: el log termina 16:45:54, el tap de cuenta nueva cae fuera de lo exportado.
@@ -63,3 +62,11 @@
 - `No offer returned from the API` (va `0x101e88650`) tiene 8 xrefs ADRP+ADD exactos (código `0x1012a94a0` entre ellos); el string `No offer found matching…` no tiene xref ADRP directo (literal outlineado o small-string; Hypothesis).
 - **Límite validado**: symtab strippeado (6734 símbolos, todos valor `0x0`, solo binds de frameworks) → sin nombres de función de la app; el código es state-machine async Swift y smda no delimita la función. Atribución funcional estática = costosa. Decisión: la pregunta POST-vs-flag se responde en dinámico (log del tap), no en estático.
 - Infra commiteada: `tools/xref_string.py` (scan ADRP por patrón de bytes + disasm local, escala a 28MB), `tools/funcmap.py` (experimental: bounds vía smda + BL/stubs vía LIEF).
+
+## 8. Protocolo v3 en ventana activa (sin compra — la suscripción sigue viva)
+Ordenado por valor, ninguno requiere evento de compra:
+1. **Keychain probe al init**: revela dónde vive la credencial activa (servicio/cuenta redactada). Es el dato que E2 necesita para el replay de sesión. Si aparece un item nuevo vs. sesión anterior, el timer lo registra.
+2. **Playback Hi-Res completo con v3**: al reproducir un track, el fetch de file-URL (full vs preview, `url_template` con `hmac`/`etsp`) debe pasar por `dataTask`/`uploadTask` hookeados. Capturarlo documenta el esquema de firma de URLs del servidor — requisito para evaluar replay fuera de la app.
+3. **Tap al Subscribe muerto**: el marcador `TAP` + (ausencia de) red posterior confirma no-op vs. intento. Cuesta un tap.
+4. **Heartbeat + diffs durante uso normal**: `reportStreamingStart/End`, revalidaciones de sesión y expiraciones parciales aparecen solos con el uso.
+5. Precaución: reinstalar para v3 puede vaciar el contenedor — backup de `sandboxReceipt` + plist + `last.json` ANTES. Predicción split-brain: tras reinstalar, login con la misma cuenta restaura Hi-Res sin paywall (credencial server-side).
