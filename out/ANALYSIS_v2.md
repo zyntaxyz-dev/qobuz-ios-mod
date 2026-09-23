@@ -48,3 +48,6 @@
 - Soporte estático: rama `Matching offer found for product id:` vs `No offer found matching the app store product identifiers:` en `OffersViewModel`, y símbolo Swift `validateTransaction(with:ModelRaw, CredentialContainer, UInt64)` — la validación ata transacción↔credencial.
 - Evidencia que lo confirma o refuta: el tail del log en el minuto del tap. Si aparece `NET POST …/appStore/transactionSubscribed -> 200` sin `SK1`/`SK2` previo → Path B confirmado y el exploit es rejugable sin Apple. Si no hay POST → el grant es local y hay que buscar el flag.
 - El `receipt_timer_1790181402.bin` (25 KB, verificado en Filza) es la materia prima del replay: si el backend acepta receipt-por-POST, ese archivo es la llave E2.
+
+## 5. Correlación receipt reescrito ↔ stream SK2 (comparativa binaria 2026-09-23)
+- `phone-files/receipt_timer_1790181402.bin` (24864B, sha `9e82f34d…`, mtime 16:35:43) vs `phone-files/sandboxReceipt` (24894B, sha `723d0c0e…`, mtime 16:38:46): **el receipt cambió (+30B) 3s después** de `SK2 verified …16:38:43`. Ambos PKCS#7 (`30 82 61…`). Lectura: la entrega del stream SK2 dispara refresh del receipt — el receipt es un documento vivo, no un snapshot; cada copia timestamped vale por su momento.
