@@ -31,12 +31,12 @@ echo "[+] link"
 if [ "$HAVE_SK2" = 1 ]; then
   xcrun -sdk iphoneos clang -arch "$ARCH" -mios-version-min="$MIN" -dynamiclib \
     "$TMP/QZ.o" "$TMP/QZSK2.o" \
-    -framework Foundation -framework StoreKit \
+    -framework Foundation -framework UIKit -framework StoreKit -framework Security \
     -L"$SDK/usr/lib/swift" -lswiftCore -lswiftFoundation -lswiftDarwin -lswift_Concurrency \
     -o "$OUT"
 else
   xcrun -sdk iphoneos clang -arch "$ARCH" -mios-version-min="$MIN" -O2 -dynamiclib \
-    "$TMP/QZ.o" -framework Foundation -framework StoreKit -o "$OUT"
+    "$TMP/QZ.o" -framework Foundation -framework UIKit -framework StoreKit -framework Security -o "$OUT"
 fi
 
 echo "[+] verify"

@@ -4,10 +4,15 @@
 // receipt watcher con copias timestamped, heartbeat 60s, snapshots con diff, redacción de secretos.
 // Todo va envuelto en @try: ante cualquier fallo loguea y sigue, jamás crashea la app.
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <dlfcn.h>
 #import <StoreKit/StoreKit.h>
+#import <Security/Security.h>
 #import <CommonCrypto/CommonDigest.h>
+
+// Estado de hooks (visible en heartbeat)
+static BOOL gNetOK = NO, gUpOK = NO, gTapOK = NO;
 
 #pragma mark - Base logger
 
@@ -81,6 +86,15 @@ static BOOL QZShouldLogURL(NSURL* u){
   return [s containsString:@"appStore"] || [s containsString:@"offerEligibility"] ||
          [s containsString:@"transactionSubscribed"] || [s containsString:@"reportStreaming"] ||
          [s containsString:@"qobuz"];
+}
+
+// v3: ruido de imágenes (portadas, resizer, CDN editorial) — se cuenta, no se loguea.
+static unsigned long gNoiseCount = 0;
+static BOOL QZIsNoise(NSURL* u){
+  if(!u) return NO;
+  NSString* s = u.absoluteString;
+  if(!s) return NO;
+  return [s containsString:@"/images/"] || [s containsString:@"resizer/v2"] || [s containsString:@"cloudfront"];
 }
 
 #pragma mark - Receipt watcher
@@ -166,12 +180,13 @@ static void QZLogResponse(NSURLRequest* req, NSData* d, NSURLResponse* r){
 
 static QZDataTaskCH gOrigDataTaskCH = NULL;
 static NSURLSessionDataTask* qz_dataTaskCH(id self, SEL _cmd, NSURLRequest* req, void(^comp)(NSData*,NSURLResponse*,NSError*)){
+  if(!gOrigDataTaskCH) return nil;
+  if(QZIsNoise(req.URL)){ __sync_fetch_and_add(&gNoiseCount, 1); return gOrigDataTaskCH(self, _cmd, req, comp); }
   @try{
     if(QZShouldLogURL(req.URL)){
       QZLog(@"NET %@ %@ bodylen=%lu", req.HTTPMethod ?: @"?", req.URL.absoluteString, (unsigned long)req.HTTPBody.length);
     }
   }@catch(...){}
-  if(!gOrigDataTaskCH) return nil;
   void(^wrapped)(NSData*,NSURLResponse*,NSError*) = ^(NSData* d, NSURLResponse* r, NSError* e){
     @try{
       if(QZShouldLogURL(req.URL)) QZLogResponse(req, d, r);
@@ -185,11 +200,81 @@ static NSURLSessionDataTask* qz_dataTaskCH(id self, SEL _cmd, NSURLRequest* req,
 typedef NSURLSessionDataTask* (*QZDataTaskPlain)(id, SEL, NSURLRequest*);
 static QZDataTaskPlain gOrigDataTaskPlain = NULL;
 static NSURLSessionDataTask* qz_dataTaskPlain(id self, SEL _cmd, NSURLRequest* req){
+  if(!gOrigDataTaskPlain) return nil;
+  if(QZIsNoise(req.URL)){ __sync_fetch_and_add(&gNoiseCount, 1); return gOrigDataTaskPlain(self, _cmd, req); }
   @try{
     if(QZShouldLogURL(req.URL)) QZLog(@"NET-CREATE %@ %@", req.HTTPMethod ?: @"?", req.URL.absoluteString);
   }@catch(...){}
-  if(!gOrigDataTaskPlain) return nil;
   return gOrigDataTaskPlain(self, _cmd, req);
+}
+
+#pragma mark - uploadTask (v3: cubre stacks que suben JSON en vez de dataTask)
+
+typedef NSURLSessionUploadTask* (*QZUploadData)(id, SEL, NSURLRequest*, NSData*, void(^)(NSData*,NSURLResponse*,NSError*));
+static QZUploadData gOrigUploadData = NULL;
+static NSURLSessionUploadTask* qz_uploadData(id self, SEL _cmd, NSURLRequest* req, NSData* body, void(^comp)(NSData*,NSURLResponse*,NSError*)){
+  if(!gOrigUploadData) return nil;
+  if(QZIsNoise(req.URL)) return gOrigUploadData(self, _cmd, req, body, comp);
+  @try{
+    if(QZShouldLogURL(req.URL)){
+      QZLog(@"NET-UP %@ %@ bodylen=%lu", req.HTTPMethod ?: @"?", req.URL.absoluteString,
+            (unsigned long)(req.HTTPBody.length + (body ? body.length : 0)));
+    }
+  }@catch(...){}
+  void(^wrapped)(NSData*,NSURLResponse*,NSError*) = ^(NSData* d, NSURLResponse* r, NSError* e){
+    @try{
+      if(QZShouldLogURL(req.URL) && !QZIsNoise(req.URL)) QZLogResponse(req, d, r);
+      if(e && QZShouldLogURL(req.URL)) QZLog(@"NET-ERR %@ %@", req.URL.absoluteString, e);
+    }@catch(...){}
+    if(comp) comp(d, r, e);
+  };
+  return gOrigUploadData(self, _cmd, req, body, wrapped);
+}
+
+typedef NSURLSessionUploadTask* (*QZUploadFile)(id, SEL, NSURLRequest*, NSURL*, void(^)(NSData*,NSURLResponse*,NSError*));
+static QZUploadFile gOrigUploadFile = NULL;
+static NSURLSessionUploadTask* qz_uploadFile(id self, SEL _cmd, NSURLRequest* req, NSURL* furl, void(^comp)(NSData*,NSURLResponse*,NSError*)){
+  if(!gOrigUploadFile) return nil;
+  if(QZIsNoise(req.URL)) return gOrigUploadFile(self, _cmd, req, furl, comp);
+  @try{
+    if(QZShouldLogURL(req.URL)) QZLog(@"NET-UPFILE %@ %@ file=%@", req.HTTPMethod ?: @"?", req.URL.absoluteString, furl.lastPathComponent ?: @"?");
+  }@catch(...){}
+  void(^wrapped)(NSData*,NSURLResponse*,NSError*) = ^(NSData* d, NSURLResponse* r, NSError* e){
+    @try{
+      if(QZShouldLogURL(req.URL) && !QZIsNoise(req.URL)) QZLogResponse(req, d, r);
+    }@catch(...){}
+    if(comp) comp(d, r, e);
+  };
+  return gOrigUploadFile(self, _cmd, req, furl, wrapped);
+}
+
+#pragma mark - Tap marker (v3: timestamp exacto del Subscribe)
+
+typedef BOOL (*QZSendAction)(id, SEL, SEL, id, id, UIEvent*);
+static QZSendAction gOrigSendAction = NULL;
+static BOOL qz_sendAction(id self, SEL _cmd, SEL action, id to, id from, UIEvent* event){
+  @try{
+    NSString* a = NSStringFromSelector(action) ?: @"?";
+    NSString* senderDesc = @"?";
+    @try{
+      if([from isKindOfClass:[UIButton class]]){
+        senderDesc = [NSString stringWithFormat:@"UIButton[%@]", [(UIButton*)from currentTitle] ?: @"?" ];
+      } else if(from) {
+        senderDesc = NSStringFromClass([from class]);
+      }
+    }@catch(...){}
+    BOOL hit = [a rangeOfString:@"ubscri" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+               [a rangeOfString:@"purchase" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+               [a rangeOfString:@"trial" options:NSCaseInsensitiveSearch].location != NSNotFound ||
+               [senderDesc rangeOfString:@"ubscri" options:NSCaseInsensitiveSearch].location != NSNotFound;
+    if(hit){
+      QZLog(@"TAP action=%@ to=%@ sender=%@", a, to ? NSStringFromClass([to class]) : @"?", senderDesc);
+      QZSnapshotReceipt(@"tap");
+      QZDumpUserDefaults(@"tap", YES);
+    }
+  }@catch(...){}
+  if(!gOrigSendAction) return NO;
+  return gOrigSendAction(self, _cmd, action, to, from, event);
 }
 
 static BOOL QZExchange(Class c, SEL s, IMP repl, IMP* outOrig){
@@ -285,6 +370,41 @@ static void qz_setDelegate(id self, SEL _cmd, id d){
 - (void)paymentQueue:(SKPaymentQueue*)q restoreCompletedTransactionsFailedWithError:(NSError*)e{ QZLog(@"SK1 restore fail %@", e); }
 @end
 
+#pragma mark - Keychain presence probe (v3: solo metadatos, jamás secretos)
+
+static NSString* gKeychainSig = nil;
+
+static void QZKeychainProbe(NSString* tag, BOOL force){
+  @try{
+    NSMutableArray* items = [NSMutableArray array];
+    for(id cls in @[(id)kSecClassGenericPassword, (id)kSecClassInternetPassword]){
+      NSDictionary* q = @{ (id)kSecClass: cls,
+                           (id)kSecReturnAttributes: @YES,
+                           (id)kSecMatchLimit: (__bridge id)kSecMatchLimitAll };
+      CFTypeRef out = NULL;
+      OSStatus st = SecItemCopyMatching((__bridge CFDictionaryRef)q, &out);
+      if(st == errSecSuccess && out != NULL){
+        @try{
+          for(NSDictionary* a in (__bridge NSArray*)out){
+            NSString* svc = [NSString stringWithFormat:@"%@", a[(id)kSecAttrService] ?: a[(id)kSecAttrServer] ?: @"?"];
+            NSString* acct = [NSString stringWithFormat:@"%@", a[(id)kSecAttrAccount] ?: @"?"];
+            if(svc.length > 80) svc = [svc substringToIndex:80];
+            [items addObject:[NSString stringWithFormat:@"%@/%@", svc, QZRedact(acct)]];
+          }
+        }@catch(...){}
+        CFRelease(out);
+      } else if(st != errSecItemNotFound){
+        QZLog(@"KEYCHAIN[%@] status=%d", tag, (int)st);
+        return;
+      }
+    }
+    NSString* sig = [[items sortedArrayUsingSelector:@selector(compare:)] componentsJoinedByString:@";"];
+    if(!force && gKeychainSig && [sig isEqualToString:gKeychainSig]) return; // sin cambios
+    gKeychainSig = [sig copy];
+    QZLog(@"KEYCHAIN[%@] n=%lu %@", tag, (unsigned long)items.count, sig);
+  }@catch(...){ QZLog(@"KEYCHAIN[%@] exception", tag); }
+}
+
 #pragma mark - Heartbeat (verificación en vivo vía Filza)
 
 static void QZHeartbeat(void){
@@ -293,12 +413,13 @@ static void QZHeartbeat(void){
     @try{ pending = [[SKPaymentQueue defaultQueue] transactions].count; }@catch(...){}
     NSURL* rurl = [[NSBundle mainBundle] appStoreReceiptURL];
     NSDictionary* at = rurl ? [[NSFileManager defaultManager] attributesOfItemAtPath:rurl.path error:nil] : nil;
-    QZLog(@"alive pendingSK1=%lu receipt=%@B mtime=%@", (unsigned long)pending,
-          at ? at[NSFileSize] : @"?", at ? at[NSFileModificationDate] : @"?");
+    QZLog(@"alive pendingSK1=%lu receipt=%@B mtime=%@ imgSkipped=%lu hooks(net=%d,up=%d,tap=%d)", (unsigned long)pending,
+          at ? at[NSFileSize] : @"?", at ? at[NSFileModificationDate] : @"?", gNoiseCount, gNetOK, gUpOK, gTapOK);
     if(at && (!gLastReceiptMtime || ![at[NSFileModificationDate] isEqualToDate:gLastReceiptMtime])){
       QZSnapshotReceipt(@"timer"); // el receipt cambió: preservar
     }
     QZDumpUserDefaults(@"timer", NO); // solo loguea si hubo cambios
+    QZKeychainProbe(@"timer", NO);    // solo loguea si hubo cambios
   }@catch(...){}
 }
 
@@ -306,7 +427,7 @@ static void QZHeartbeat(void){
 
 __attribute__((constructor)) static void qz_init(void){
   @try{
-    QZLog(@"=== QobuzLogger v2 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
+    QZLog(@"=== QobuzLogger v3 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
     QZLog(@"receiptURL=%@", [[[NSBundle mainBundle] appStoreReceiptURL] path]);
 
     // 1. SK1 observer (fallback + conteo de pendientes)
@@ -317,11 +438,10 @@ __attribute__((constructor)) static void qz_init(void){
     }@catch(NSException* e){ QZLog(@"SK1 observer fail %@", e); }
 
     // 2. NSURLSession: intercepción real (con fallback documentado)
-    BOOL netOK = NO;
     @try{
       IMP o = NULL;
       if(QZExchange([NSURLSession class], @selector(dataTaskWithRequest:completionHandler:), (IMP)qz_dataTaskCH, &o)){
-        gOrigDataTaskCH = (QZDataTaskCH)o; netOK = YES;
+        gOrigDataTaskCH = (QZDataTaskCH)o; gNetOK = YES;
       }
     }@catch(...){}
     @try{
@@ -330,7 +450,28 @@ __attribute__((constructor)) static void qz_init(void){
         gOrigDataTaskPlain = (QZDataTaskPlain)o;
       }
     }@catch(...){}
-    if(!netOK) QZLog(@"NET-FALLBACK passive mode (exchange failed, SK1+polling only)");
+    // 2b. uploadTask (v3): stacks que suben JSON en vez de dataTask
+    @try{
+      IMP o = NULL;
+      if(QZExchange([NSURLSession class], @selector(uploadTaskWithRequest:fromData:completionHandler:), (IMP)qz_uploadData, &o)){
+        gOrigUploadData = (QZUploadData)o; gUpOK = YES;
+      }
+    }@catch(...){}
+    @try{
+      IMP o = NULL;
+      if(QZExchange([NSURLSession class], @selector(uploadTaskWithRequest:fromFile:completionHandler:), (IMP)qz_uploadFile, &o)){
+        gOrigUploadFile = (QZUploadFile)o; gUpOK = YES;
+      }
+    }@catch(...){}
+    if(!gNetOK && !gUpOK) QZLog(@"NET-FALLBACK passive mode (exchange failed, SK1+polling only)");
+    // 2c. Tap marker (v3): timestamp exacto de cada Subscribe/purchase
+    @try{
+      IMP o = NULL;
+      if(QZExchange([UIApplication class], @selector(sendAction:to:from:forEvent:), (IMP)qz_sendAction, &o)){
+        gOrigSendAction = (QZSendAction)o; gTapOK = YES;
+      }
+    }@catch(...){}
+    if(!gTapOK) QZLog(@"TAP-FALLBACK sendAction not hooked");
 
     // 3. SKProductsRequest: IDs al init + proxy de respuesta
     @try{
@@ -340,9 +481,10 @@ __attribute__((constructor)) static void qz_init(void){
       if(QZExchange(c, @selector(setDelegate:), (IMP)qz_setDelegate, &o2)) gOrigSetDelegate = (QZSetDelegate)o2;
     }@catch(...){ QZLog(@"IAP hook fail"); }
 
-    // 4. Baseline: receipt + defaults
+    // 4. Baseline: receipt + defaults + keychain (solo presencia)
     QZSnapshotReceipt(@"init");
     QZDumpUserDefaults(@"init", YES);
+    QZKeychainProbe(@"init", YES);
 
     // 5. StoreKit 2 listener (Swift, símbolo opcional: dlsym, sin link duro)
     @try{
@@ -358,6 +500,6 @@ __attribute__((constructor)) static void qz_init(void){
         QZLog(@"heartbeat armed (60s). Reproduce flujo y observa el log crecer.");
       }@catch(...){}
     });
-    QZLog(@"=== QobuzLogger v2 ready ===");
+    QZLog(@"=== QobuzLogger v3 ready (net=%d up=%d tap=%d) ===", gNetOK, gUpOK, gTapOK);
   }@catch(...){}
 }

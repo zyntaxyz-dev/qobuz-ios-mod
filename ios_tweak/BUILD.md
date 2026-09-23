@@ -27,7 +27,14 @@ Luego ESign -> Sign -> Install.
 5. Filza -> `Containers/Data/Application/<Qobuz UUID>/Documents/qobuz_hook.log`.
 6. Exporta también `Library/Preferences/com.qobuz.music.plist`.
 
-## v2: qué registra (ya no es pasiva)
+## v3: qué añade sobre v2 (tap exacto + keychain + sin ruido)
+- `TAP action=… to=… sender=…`: hook a `UIApplication sendAction:to:from:forEvent:` que marca con timestamp cada tap Subscribe/purchase/trial + snapshot de receipt y defaults en ese instante. Si el tap no genera POST posterior, el grant es local (caza de flag).
+- `uploadTask` hooks (`fromData` + `fromFile`): cubre stacks que suben JSON sin pasar por `dataTask`.
+- Keychain probe: `SecItemCopyMatching` con `kSecReturnAttributes` (nunca valores) — detecta dónde vive la credencial por presencia/cambios, cuentas redactadas.
+- Filtro de ruido: `static.qobuz.com/images`, `resizer/v2`, `cloudfront` se cuentan (`imgSkipped=N` en el heartbeat) en vez de loguear 150 líneas de portadas.
+- Heartbeat extendido: `hooks(net=,up=,tap=)` + `imgSkipped` + keychain-diff.
+
+## v2 (base que se mantiene)
 - Red real con fallback: exchange `dataTaskWithRequest:completionHandler:` + `dataTaskWithRequest:` (+ log de creación). Filtra `appStore|offerEligibility|transactionSubscribed|reportStreaming|qobuz`, trunca a 2 KB, redacta `user_auth_token|hmac|jws`. Si el exchange falla → modo pasivo v1, nunca crashea.
 - StoreKit 2 en Swift (`QobuzLoggerSK2.swift`): `Transaction.updates` + `currentEntitlements`. Símbolo opcional vía `dlsym` (build ObjC-only sigue funcional).
 - Receipt watcher: copia `sandboxReceipt` → `Documents/receipt_<tag>_<epoch>.bin` al init, tras cada transacción SK1 y por timer si cambia el mtime. Log con tamaño + sha corto.
