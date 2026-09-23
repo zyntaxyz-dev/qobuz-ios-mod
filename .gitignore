@@ -15,6 +15,10 @@ __pycache__/
 logs/
 *.log
 
+# Receipts exportados del dispositivo (historial de compras sandbox)
+phone-files/
+*.bin
+
 # OS / editores
 .DS_Store
 Thumbs.db
