@@ -57,3 +57,9 @@
 - `RECEIPT[init]` ahora presente (24894B, sha `723d0c0e…` = el `sandboxReceipt` de `phone-files/`) + copia `receipt_init_1790181954.bin`. El watcher cubre ambos casos (missing→copy, present→copy).
 - **Cero `productsRequest`** en esta sesión: la consulta de productos (US+DE) es disparada por la vista del paywall, no por el launch. Para capturar `productsResponse` hay que abrir el paywall con el logger vivo.
 - Entitlement CA persiste (`count=1`). Ventana de tap aún no capturada: el log termina 16:45:54, el tap de cuenta nueva cae fuera de lo exportado.
+
+## 7. Sesión estática dirigida — branch no-offer (2026-09-23, `tools/xref_string.py`)
+- `No offer found matching…` vive en `__TEXT` va `0x101e886f0`, en página que concentra TODO el vocabulario IAP (`getOffer(forceRefresh:offerEligibility:)` … `validateAndCompleteTransaction(_:)`, `retryPendingTransaction()`, `monitorTransactionUpdates()`): cluster `getOffer`/OffersViewModel en `0x10128F–0x1012C`.
+- `No offer returned from the API` (va `0x101e88650`) tiene 8 xrefs ADRP+ADD exactos (código `0x1012a94a0` entre ellos); el string `No offer found matching…` no tiene xref ADRP directo (literal outlineado o small-string; Hypothesis).
+- **Límite validado**: symtab strippeado (6734 símbolos, todos valor `0x0`, solo binds de frameworks) → sin nombres de función de la app; el código es state-machine async Swift y smda no delimita la función. Atribución funcional estática = costosa. Decisión: la pregunta POST-vs-flag se responde en dinámico (log del tap), no en estático.
+- Infra commiteada: `tools/xref_string.py` (scan ADRP por patrón de bytes + disasm local, escala a 28MB), `tools/funcmap.py` (experimental: bounds vía smda + BL/stubs vía LIEF).
