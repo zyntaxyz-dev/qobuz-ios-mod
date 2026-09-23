@@ -17,7 +17,8 @@ xcrun -sdk iphoneos clang -arch "$ARCH" -mios-version-min="$MIN" -O2 -fobjc-arc 
 
 HAVE_SK2=0
 echo "[+] swiftc QobuzLoggerSK2.swift"
-if xcrun -sdk iphoneos swiftc -arch "$ARCH" -mios-version-min="$MIN" -O \
+# NOTA: swiftc no acepta -arch; se usa -target triple.
+if xcrun -sdk iphoneos swiftc -target "$ARCH-apple-ios$MIN" -O \
     -import-objc-header ios_tweak/QZBridge.h \
     -emit-object ios_tweak/QobuzLoggerSK2.swift -o "$TMP/QZSK2.o"; then
   HAVE_SK2=1
