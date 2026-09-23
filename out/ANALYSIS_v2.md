@@ -52,7 +52,8 @@
 ## 5. Correlación receipt reescrito ↔ stream SK2 (comparativa binaria 2026-09-23)
 - `phone-files/receipt_timer_1790181402.bin` (24864B, sha `9e82f34d…`, mtime 16:35:43) vs `phone-files/sandboxReceipt` (24894B, sha `723d0c0e…`, mtime 16:38:46): **el receipt cambió (+30B) 3s después** de `SK2 verified …16:38:43`. Ambos PKCS#7 (`30 82 61…`). Lectura: la entrega del stream SK2 dispara refresh del receipt — el receipt es un documento vivo, no un snapshot; cada copia timestamped vale por su momento.
 
-## 6. Segunda sesión (relaunch 16:45:53, mismo contenedor) — deltas- `pendingSK1`: **21 → 0**. La cola de 21 transacciones sin finalizar NO sobrevivió al relaunch (Apple la purgó o el delivery SK2 las cerró). Revisión E1: no se puede contar con acumulación en cola; la ventana de observación es la sesión viva.
+## 6. Segunda sesión (relaunch 16:45:53, mismo contenedor) — deltas
+- `pendingSK1`: **21 → 0**. La cola de 21 transacciones sin finalizar NO sobrevivió al relaunch (Apple la purgó o el delivery SK2 las cerró). Revisión E1: no se puede contar con acumulación en cola; la ventana de observación es la sesión viva.
 - `RECEIPT[init]` ahora presente (24894B, sha `723d0c0e…` = el `sandboxReceipt` de `phone-files/`) + copia `receipt_init_1790181954.bin`. El watcher cubre ambos casos (missing→copy, present→copy).
 - **Cero `productsRequest`** en esta sesión: la consulta de productos (US+DE) es disparada por la vista del paywall, no por el launch. Para capturar `productsResponse` hay que abrir el paywall con el logger vivo.
 - Entitlement CA persiste (`count=1`). Ventana de tap aún no capturada: el log termina 16:45:54, el tap de cuenta nueva cae fuera de lo exportado.
@@ -70,3 +71,13 @@ Ordenado por valor, ninguno requiere evento de compra:
 3. **Tap al Subscribe muerto**: el marcador `TAP` + (ausencia de) red posterior confirma no-op vs. intento. Cuesta un tap.
 4. **Heartbeat + diffs durante uso normal**: `reportStreamingStart/End`, revalidaciones de sesión y expiraciones parciales aparecen solos con el uso.
 5. Precaución: reinstalar para v3 puede vaciar el contenedor — backup de `sandboxReceipt` + plist + `last.json` ANTES. Predicción split-brain: tras reinstalar, login con la misma cuenta restaura Hi-Res sin paywall (credencial server-side).
+
+## 9. Primera sesión v3 (fresh install 18:47:01, contenedor B117… nuevo)
+- Todo arriba (`net=1 up=1 tap=1`), keychain probe con 66 items, `imgSkipped=0`, cero crashes.
+- **Credencial localizada (presencia)**: entradas propias `7UCG7QB3B7.com.qobuz.music/accessAuthTo…`, `/refreshAuthT…`, `/tokenExpires…` (+ `/RealmDatabas…`). El trío access/refresh/expiry vive en keychain del teamID de Qobuz; valores jamás logueados por diseño. Es el objetivo de E2: con login válido se reemiten, el replay sería reinyectarlas, no tocar StoreKit.
+- Contenedor fresco repite el patrón: `RECEIPT[init] missing` → 24855B a los 2s (sha `93e1bb86…` nuevo, copia `receipt_timer_1790189282.bin`).
+- `productsRequest ids={(20181112.studio.de)}`: esta vez SOLO DE (antes US+DE) — la consulta depende de la store/región del momento. Paywall visto a los 2s del launch.
+- Entitlement CA persiste tras reinstall (cuenta sandbox Apple, server-side, esperado).
+- `pendingSK1=20` en fresh install: la cola es de la cuenta sandbox, no del contenedor. Varía entre sesiones (21→0→20); la purga ocurre del lado Apple.
+- `QobuzConnectDeviceID` nuevo (`63D88488…`): cada install genera deviceID distinto — anotado para la pregunta de amarre token↔dispositivo en E2.
+- Aún sin `TAP` ni tráfico `/appStore/*`: el tap de cuenta nueva sigue pendiente de exportar.
