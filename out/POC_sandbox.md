@@ -38,8 +38,10 @@ Idea: forzar isHiresStreamable/hires_streaming=true local.
 - No publicar productIDs ni tokens: uso investigación local.
 - Cada modificación preserva original + sha256 (out/Qobuz.sha256 = aa56c34c...).
 
-## Siguiente input que necesito de ti (tras inyectar logger)
-1. `qobuz_hook.log` de una sesión trial->HiRes.
-2. `com.qobuz.music.plist` (prefs) + lista Documents via Filza.
-3. ProductID exacto que te ofrece el paywall (visible en log v1 como "Product identifiers extracted").
-Con eso genero QobuzLogger v2 con hooks dirigidos al productID real.
+## Addendum 2026-09-23 — split-brain (evidencia de dispositivo, revierte el orden E1→E2)
+
+- Confirmado: `Subscription plan = You're currently not subscribed` + botón `Subscribe` SIN precio (`/month` vacío) mientras el player reproduce full-track `24-Bit/192kHz` (Joji, 01:39/-00:11) con badge Hi-Res. La autorización de streaming NO depende del estado de plan visible: vive en la credencial Qobuz server-side (`user_auth_token`/credential del trial sandbox).
+- Fuertemente apoyado: precio ausente = `getOffer()` no resuelve `SKProduct`s en este contexto (ver string `No offer found matching the app store product identifiers`). El gate de precio es decorativo; el gate real es la credencial del backend.
+- Confirmado: `Documents/RecentActivity/last.json` con `"hires":true` por `contentID` — migas preservables vía Filza.
+- Implicación: E2 (replay de sesión Qobuz) pasa por delante de E1 (freeze del receipt Apple). Y v2 se despliega DURANTE la ventana viva: no necesita el instante de compra.
+- Nueva cuenta: el botón `Subscribe` está muerto en la cuenta actual (trial consumido). La próxima compra provocable requiere cuenta Qobuz nueva + (probablemente) sandbox tester nuevo de Apple. Antes de eso, backup de `sandboxReceipt` 25 KB + plist + `last.json` fuera del contenedor.

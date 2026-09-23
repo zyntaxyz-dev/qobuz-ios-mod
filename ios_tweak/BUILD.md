@@ -27,13 +27,16 @@ Luego ESign -> Sign -> Install.
 5. Filza -> `Containers/Data/Application/<Qobuz UUID>/Documents/qobuz_hook.log`.
 6. Exporta también `Library/Preferences/com.qobuz.music.plist`.
 
-## v1 es pasiva a propósito
-- No hace exchange agresivo de NSURLSession para no crashear en iOS 26.
-- Solo observa SK1 + snapshot NSUserDefaults + receiptURL + clases.
-- v2 (tras tus logs) añadirá swizzle NSURLSession completo + hook `verifyTransaction/validateAndComplete` por dirección (capstone) si hace falta flag-pin.
+## v2: qué registra (ya no es pasiva)
+- Red real con fallback: exchange `dataTaskWithRequest:completionHandler:` + `dataTaskWithRequest:` (+ log de creación). Filtra `appStore|offerEligibility|transactionSubscribed|reportStreaming|qobuz`, trunca a 2 KB, redacta `user_auth_token|hmac|jws`. Si el exchange falla → modo pasivo v1, nunca crashea.
+- StoreKit 2 en Swift (`QobuzLoggerSK2.swift`): `Transaction.updates` + `currentEntitlements`. Símbolo opcional vía `dlsym` (build ObjC-only sigue funcional).
+- Receipt watcher: copia `sandboxReceipt` → `Documents/receipt_<tag>_<epoch>.bin` al init, tras cada transacción SK1 y por timer si cambia el mtime. Log con tamaño + sha corto.
+- Heartbeat 60s (`alive pendingSK1=… receipt=…`) verificable en vivo con Filza + snapshots de defaults con diff (solo loguea cambios).
+- Proxy de `SKProductsRequest`: registra `productIdentifier`s al init y productos/precios en la respuesta, reenvía todo al delegate real.
 
-## Protocolo de prueba
-1. Instalación limpia, abre app, tapa `Start your 30-day free trial`.
-2. Reproduce track Hi-Res conocido (ej Joji PIXELATED KISSES), deja 2 min.
-3. Kill + relaunch, verifica si sigue Hi-Res o cae a preview 30s.
-4. Copia `qobuz_hook.log` + hora exacta de cada paso.
+## Protocolo de prueba (ventana viva, sin necesidad de compra)
+1. Backup ANTES de reinstalar: `sandboxReceipt`, `com.qobuz.music.plist`, `RecentActivity/last.json` (la reinstalación puede vaciar el contenedor).
+2. Instala IPA con v2, abre app, verifica en Filza que `qobuz_hook.log` crece (`alive` cada 60s).
+3. Login con la MISMA cuenta Qobuz: si el Hi-Res vuelve sin paywall → confirma credencial server-side (predicción del split-brain).
+4. Reproduce Hi-Res 2 min → kill → relaunch → ¿persiste o cae a preview 30s?
+5. Exporta `qobuz_hook.log` + `receipt_*.bin` + hora exacta de cada paso.

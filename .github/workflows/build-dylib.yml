@@ -22,6 +22,8 @@ jobs:
           xcode-select -p
           xcodebuild -version
           xcrun -sdk iphoneos --show-sdk-path
+          xcodebuild -showsdks | grep -i iphoneos || true
+          xcrun -sdk iphoneos swiftc --version || true
 
       - name: Build QobuzLogger.dylib (arm64, jailed, ESign-ready)
         run: |
@@ -32,8 +34,9 @@ jobs:
           file out/QobuzLogger.dylib
           lipo -info out/QobuzLogger.dylib
           otool -L out/QobuzLogger.dylib
-          # debe ser arm64 thin, solo Foundation + StoreKit + libobjc/libSystem
+          # debe ser arm64 thin, solo Foundation + StoreKit + libobjc/libSystem (+libswift si SK2)
           ! otool -L out/QobuzLogger.dylib | grep -qi "substrate\|substitute\|ellekit" && echo "[+] no jailbreak deps OK"
+          nm -gU out/QobuzLogger.dylib | grep -q _QZSK2Start && echo "[+] SK2 listener linked" || echo "[i] ObjC-only build (SK2 via red+polling)"
 
       - name: SHA256
         run: shasum -a 256 out/QobuzLogger.dylib | tee out/QobuzLogger.sha256
