@@ -51,3 +51,9 @@
 
 ## 5. Correlación receipt reescrito ↔ stream SK2 (comparativa binaria 2026-09-23)
 - `phone-files/receipt_timer_1790181402.bin` (24864B, sha `9e82f34d…`, mtime 16:35:43) vs `phone-files/sandboxReceipt` (24894B, sha `723d0c0e…`, mtime 16:38:46): **el receipt cambió (+30B) 3s después** de `SK2 verified …16:38:43`. Ambos PKCS#7 (`30 82 61…`). Lectura: la entrega del stream SK2 dispara refresh del receipt — el receipt es un documento vivo, no un snapshot; cada copia timestamped vale por su momento.
+
+## 6. Segunda sesión (relaunch 16:45:53, mismo contenedor) — deltas
+- `pendingSK1`: **21 → 0**. La cola de 21 transacciones sin finalizar NO sobrevivió al relaunch (Apple la purgó o el delivery SK2 las cerró). Revisión E1: no se puede contar con acumulación en cola; la ventana de observación es la sesión viva.
+- `RECEIPT[init]` ahora presente (24894B, sha `723d0c0e…` = el `sandboxReceipt` de `phone-files/`) + copia `receipt_init_1790181954.bin`. El watcher cubre ambos casos (missing→copy, present→copy).
+- **Cero `productsRequest`** en esta sesión: la consulta de productos (US+DE) es disparada por la vista del paywall, no por el launch. Para capturar `productsResponse` hay que abrir el paywall con el logger vivo.
+- Entitlement CA persiste (`count=1`). Ventana de tap aún no capturada: el log termina 16:45:54, el tap de cuenta nueva cae fuera de lo exportado.
