@@ -65,7 +65,7 @@ static NSString* QZScrubBody(NSString* body){
     static NSRegularExpression* rx = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-      rx = [NSRegularExpression regularExpressionWithPattern:@"\"(user_auth_token|hmac|jws|signature|receipt-data|receipt_data|key)\"\\s*:\\s*\"([^\"]{13,})\""
+      rx = [NSRegularExpression regularExpressionWithPattern:@"\"(user_auth_token|hmac|jws|signature|receipt-data|receipt_data|key|refreshToken|authToken|fid|refresh_token|access_token)\"\\s*:\\s*\"([^\"]{13,})\""
                                                      options:NSRegularExpressionCaseInsensitive error:nil];
     });
     NSMutableString* m = [body mutableCopy];

@@ -82,6 +82,12 @@ Ordenado por valor, ninguno requiere evento de compra:
 - `QobuzConnectDeviceID` nuevo (`63D88488…`): cada install genera deviceID distinto — anotado para la pregunta de amarre token↔dispositivo en E2.
 - Aún sin `TAP` ni tráfico `/appStore/*`: el tap de cuenta nueva sigue pendiente de exportar.
 
+## 14. Export de sesión OK + modelo de elegibilidad (2026-09-23, v5)
+- `EXPORT[init] n=8 bytes=7935 file=session_export_init_1790198003.json` (`logs/qobuz_hook.log:17`, sesión 21:13:22, contenedor BACC nuevo). Contenido (solo metadatos): accessAuthToken 44B + refreshAuthToken 44B + tokenExpires `2026-10…` en claro + OAuth bplist 6880B + Realm-key 64B + UUIDs. Set E2 completo y verificado en estructura.
+- `tasksTotal=71 / imgSkipped=45`: cobertura cuantificada — vemos todo, el resto es ruido filtrado.
+- Modelo de elegibilidad (observado por ti, consistente con todo): trial 30d SOLO en cuentas Qobuz nuevas (server-side `offerEligibility`); cuenta vieja sin oferta en sideload porque ya consumió; subs web no existen en la app. TestFlight sí muestra oferta en cuenta vieja (Hypothesis: distinto contexto storefront/receipt o chequeo de elegibilidad distinto — pendiente de captura con logger si interesa).
+- Higiene v5.1: el scrub ahora enmascara también `refreshToken|authToken|fid|*_token` (el log v5 traía JWT de Firebase en claro; solo telemetría, pero no se comparte).
+
 ## 10. Sesión de compra cuenta nueva (20:16:46–20:17:58, mismo contenedor B117)
 - **Compra sandbox FRESCA por SK2**: `SK2 verified id=2000001…3333 product=20190214.studio.us date=2026-09-23 20:17:50 expires=2026-09-24 revoked=nil`. Timestamp de compra al segundo, sin sheet visible en log (el sheet es proceso Apple, fuera del tweak — esperado).
 - **Credencial emitida alrededor de la compra** (diff keychain crudo init→timer, set limpio): NUEVO `7UCG7QB3B7.com.qobuz.music/accessAuthTo…` + `/refreshAuthT…` + `auth/***`. Nada desaparece. El trío aparece con el login/compra: confirma que la credencial Qobuz nace del flujo de compra y vive en keychain propio.
