@@ -96,3 +96,10 @@ Ordenado por valor, ninguno requiere evento de compra:
 - Lectura: el 16.99 es **texto de oferta server-driven** (viene de `/appStore/offerEligibility`, backend Qobuz), NO precio de `SKProduct` — el botón no lleva precio porque `productsResponse` nunca resolvió productos de Apple. Doble fuente confirmada: backend sí responde oferta, StoreKit no devuelve productos.
 - Esto explica por qué el flujo completa la compra igual (el producto se compra por ID directo: `20190214.studio.us` en el tx SK2) sin mostrar precio Apple en ningún sheet.
 - Pendiente sin cambios: tail post-compra con el POST `transactionSubscribed` (formato exacto a rejugear para E2).
+
+## 12. Sesión v4 (20:37:56–20:47:14, contenedor CC42 nuevo): navegación + login mapeados
+- Hook `presentViewController` operativo (`vc=1`): `PRESENT SFAuthenticationViewController from=Qobuz.QobuzNavigationController` (20:38:34, 20:39:31) = login OAuth vía browser; luego onboarding SwiftUI (`HostedViewController…ArtistSelectionView_`, `…NotificationView_`) y navegación `QobuzNavigationController`/`TabBar`. Primer mapa de pantallas sin tocar la app.
+- Entitlements SK2 = 2 (US compra de hoy + CA histórico). Keychain 67→70 con entradas `com.facebook.sdk.loginmanager/tokencache` = login con Facebook en esta sesión.
+- `pendingSK1`: 0 al launch → 20 durante la sesión. La cola se llena EN caliente (no es resto de install): `retryPendingTransaction` genera reintentos en vivo. La purga observada (21→0) fue del lado Apple entre sesiones.
+- `imgSkipped` 0→170: el filtro de ruido funciona; el log queda legible.
+- El POST `transactionSubscribed` sigue sin aparecer: ocurrió en el gap 20:17:58–20:37:56. **Vía sin compra**: la sub sandbox renueva a ritmo acelerado (cada renovación entrega nuevo tx por `Transaction.updates` y la app debería re-POSTear). Dejar la app viva / relanzar periódicamente con v4 puede capturar un renewal-POST sin comprar nada.
