@@ -81,3 +81,12 @@ Ordenado por valor, ninguno requiere evento de compra:
 - `pendingSK1=20` en fresh install: la cola es de la cuenta sandbox, no del contenedor. Varía entre sesiones (21→0→20); la purga ocurre del lado Apple.
 - `QobuzConnectDeviceID` nuevo (`63D88488…`): cada install genera deviceID distinto — anotado para la pregunta de amarre token↔dispositivo en E2.
 - Aún sin `TAP` ni tráfico `/appStore/*`: el tap de cuenta nueva sigue pendiente de exportar.
+
+## 10. Sesión de compra cuenta nueva (20:16:46–20:17:58, mismo contenedor B117)
+- **Compra sandbox FRESCA por SK2**: `SK2 verified id=2000001…3333 product=20190214.studio.us date=2026-09-23 20:17:50 expires=2026-09-24 revoked=nil`. Timestamp de compra al segundo, sin sheet visible en log (el sheet es proceso Apple, fuera del tweak — esperado).
+- **Credencial emitida alrededor de la compra** (diff keychain crudo init→timer, set limpio): NUEVO `7UCG7QB3B7.com.qobuz.music/accessAuthTo…` + `/refreshAuthT…` + `auth/***`. Nada desaparece. El trío aparece con el login/compra: confirma que la credencial Qobuz nace del flujo de compra y vive en keychain propio.
+- `productsRequest ids={(20181112.studio.de)}` (solo DE otra vez) con delegates Mixpanel/APM envueltos — pero **cero `productsResponse`** en ventana: la respuesta no llegó antes del corte o va por otro delegate. Gap abierto.
+- **Cero `TAP`**: el botón Subscribe del paywall es SwiftUI — no pasa por `sendAction:to:from:forEvent:`. Lección v4: el marcador de taps debe ser `presentViewController` (sheets del paywall y de Apple) en vez de target-action. El timestamp de compra ya lo da SK2 al segundo, así que no se perdió timing.
+- **Cero `/appStore/*`**: el POST a `transactionSubscribed` ocurre DESPUÉS del corte (log termina en el `SK2 verified` 20:17:58; la validación+POST de la app sigue en segundos). Artefacto pendiente: tail de 2–3 min post-compra.
+- Colateral: remote-config trae `subscription_external_link=true`, `trial_banner=0`, `player_wake_mode=local` (flags de paywall server-side).
+- `pendingSK1=20` estable; receipt presente al init (24875B, reescrito 20:16:00).
