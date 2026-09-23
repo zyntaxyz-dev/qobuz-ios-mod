@@ -1,0 +1,48 @@
+name: build-dylib
+
+on:
+  push:
+    paths:
+      - "ios_tweak/**"
+      - ".github/workflows/build-dylib.yml"
+  pull_request:
+    paths:
+      - "ios_tweak/**"
+  workflow_dispatch:
+
+jobs:
+  build-arm64-jailed:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Xcode info
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcrun -sdk iphoneos --show-sdk-path
+
+      - name: Build QobuzLogger.dylib (arm64, jailed, ESign-ready)
+        run: |
+          bash ios_tweak/build.sh out/QobuzLogger.dylib
+
+      - name: Verify Mach-O
+        run: |
+          file out/QobuzLogger.dylib
+          lipo -info out/QobuzLogger.dylib
+          otool -L out/QobuzLogger.dylib
+          # debe ser arm64 thin, solo Foundation + StoreKit + libobjc/libSystem
+          ! otool -L out/QobuzLogger.dylib | grep -qi "substrate\|substitute\|ellekit" && echo "[+] no jailbreak deps OK"
+
+      - name: SHA256
+        run: shasum -a 256 out/QobuzLogger.dylib | tee out/QobuzLogger.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QobuzLogger-dylib
+          path: |
+            out/QobuzLogger.dylib
+            out/QobuzLogger.sha256
+          if-no-files-found: error

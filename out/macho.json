@@ -1,0 +1,348 @@
+{
+  "path": "originals\\Qobuz_v10.1.0\\Payload\\Qobuz.app\\Qobuz",
+  "size": 41731968,
+  "magic": "0xfeedfacf",
+  "cputype": 16777228,
+  "cpusubtype": 0,
+  "filetype": 2,
+  "ncmds": 115,
+  "flags": "0xa18085",
+  "segments": [
+    {
+      "segname": "__PAGEZERO",
+      "vmsize": 4294967296,
+      "filesize": 0,
+      "nsects": 0
+    },
+    {
+      "segname": "__TEXT",
+      "vmsize": 34930688,
+      "filesize": 34930688,
+      "nsects": 30
+    },
+    {
+      "segname": "__DATA_CONST",
+      "vmsize": 1376256,
+      "filesize": 1376256,
+      "nsects": 13
+    },
+    {
+      "segname": "__DATA",
+      "vmsize": 2883584,
+      "filesize": 1458176,
+      "nsects": 16
+    },
+    {
+      "segname": "__LINKEDIT",
+      "vmsize": 3981312,
+      "filesize": 3966848,
+      "nsects": 0
+    }
+  ],
+  "dylibs": [
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/libc++.1.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/UIKit.framework/UIKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/Security.framework/Security"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/StoreKit.framework/StoreKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/libsqlite3.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/libz.1.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreText.framework/CoreText"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/Foundation.framework/Foundation"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/DeviceCheck.framework/DeviceCheck"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/Accelerate.framework/Accelerate"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreTelephony.framework/CoreTelephony"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CarPlay.framework/CarPlay"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AdSupport.framework/AdSupport"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AVFoundation.framework/AVFoundation"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CFNetwork.framework/CFNetwork"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreBluetooth.framework/CoreBluetooth"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreData.framework/CoreData"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreMedia.framework/CoreMedia"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/iAd.framework/iAd"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/MediaAccessibility.framework/MediaAccessibility"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/MediaPlayer.framework/MediaPlayer"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/QuartzCore.framework/QuartzCore"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/QuickLook.framework/QuickLook"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/FBSDKCoreKit.framework/FBSDKCoreKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/FBAEMKit.framework/FBAEMKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/FBSDKCoreKit_Basics.framework/FBSDKCoreKit_Basics"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/RealmSwift.framework/RealmSwift"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/FBSDKShareKit.framework/FBSDKShareKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/LuciqSDK.framework/LuciqSDK"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/FBSDKLoginKit.framework/FBSDKLoginKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "@rpath/GoogleCast.framework/GoogleCast"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/WatchConnectivity.framework/WatchConnectivity"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/libobjc.A.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/libSystem.B.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AVFAudio.framework/AVFAudio"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AVKit.framework/AVKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AppIntents.framework/AppIntents"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AppTrackingTransparency.framework/AppTrackingTransparency"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/AuthenticationServices.framework/AuthenticationServices"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/BackgroundTasks.framework/BackgroundTasks"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/Combine.framework/Combine"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreImage.framework/CoreImage"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CoreServices.framework/CoreServices"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/CryptoKit.framework/CryptoKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/ImageIO.framework/ImageIO"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/Intents.framework/Intents"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/MapKit.framework/MapKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/MessageUI.framework/MessageUI"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/MetricKit.framework/MetricKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/PDFKit.framework/PDFKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/SafariServices.framework/SafariServices"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/SwiftUI.framework/SwiftUI"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/UserNotifications.framework/UserNotifications"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/WebKit.framework/WebKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/System/Library/Frameworks/WidgetKit.framework/WidgetKit"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/libcompression.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftCore.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftCoreFoundation.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftDarwin.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftDispatch.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftIntents.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftObjectiveC.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftQuartzCore.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftUniformTypeIdentifiers.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswift_Concurrency.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftos.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftCoreGraphics.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftUIKit.dylib"
+    },
+    {
+      "type": "LC_LOAD_DYLIB",
+      "name": "/usr/lib/swift/libswiftNetwork.dylib"
+    }
+  ],
+  "encryption": {
+    "cmd": "LC_ENCRYPTION_INFO_64",
+    "cryptoff": 16384,
+    "cryptsize": 34897920,
+    "cryptid": 0,
+    "decrypted": true
+  },
+  "uuid": "9f914f0bc5c1393f991a447d5df0be24"
+}

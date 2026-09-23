@@ -1,0 +1,20 @@
+# Binario original — NO subir (copyright Qobuz + 40MB+)
+originals/
+*.ipa
+*.dylib
+*.sha256
+
+# Artefactos locales grandes
+out/*.ipa
+out/*.dylib
+out/strings.json
+__pycache__/
+*.pyc
+
+# Logs de Filza (pueden contener tokens)
+logs/
+*.log
+
+# OS / editores
+.DS_Store
+Thumbs.db
