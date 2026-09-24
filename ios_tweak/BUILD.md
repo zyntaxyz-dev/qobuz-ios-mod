@@ -4,7 +4,8 @@
 - Instalación normal = solo loguea (v5 completo). La restauración SOLO se dispara si existe `Documents/restore_request.txt` (vacío = último export; con nombre = ese export; con `force` = sobrescribe sesión viva).
 - Guarda: si hay credencial viva y el request no dice `force`, no toca nada (`RESTORE skipped`). Al terminar renombra el request a `restore_done_<epoch>.txt` + snapshot de receipt/defaults/keychain.
 - Resultado por item en log: `RESTORE add|update <servicio> len=… st=0`. Valores jamás en log.
-- Protocolo E2 sin reinstall: 1) backup del export fuera del dispositivo; 2) logout in-app (borra trío del keychain, contenedor intacto); 3) colocar `restore_request.txt` + `session_export_*.json` en Documents vía Filza; 4) relanzar; 5) `RESTORE … added=3` + probar Hi-Res sin login. Variante amarre: mismo con cuenta vieja logueada.
+- Protocolo E2 sin reinstall (corregido: la app exige login para reproducir):
+  1) Backup del export fuera del dispositivo; 2) inicia sesión con la cuenta VIEJA (sin trial) y verifica baseline: solo previews de 30s; 3) mata la app, coloca `restore_request.txt` + `session_export_*.json` (cuenta nueva) en Documents vía Filza; 4) relanza: el restaurador sobrescribe el keychain (`RESTORE add|update … st=0`); 5) reproduce Hi-Res logueado como cuenta vieja. Si suena completo en 24/192 → el trasplante funciona (la credencial manda, no el login). Si pide login nuevo o cae a preview → amarre a sesión; se revierte borrando el request e iniciando sesión normal.
 
 ## v5 (actual): exportador de sesión E2 + cobertura total
 - `EXPORT[init|change] n=… file=session_export_<tag>_<epoch>.json`: lee los VALORES del keychain propio (solo servicios `*qobuz*` y `auth`), base64 a `Documents/`. Al init (baseline) y cada vez que el keychain cambia (rotación por compra/login). El log jamás lleva valores, solo conteos.
