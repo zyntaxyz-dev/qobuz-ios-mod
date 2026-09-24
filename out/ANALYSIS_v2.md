@@ -97,6 +97,9 @@ Ordenado por valor, ninguno requiere evento de compra:
 - Colateral: remote-config trae `subscription_external_link=true`, `trial_banner=0`, `player_wake_mode=local` (flags de paywall server-side).
 - `pendingSK1=20` estable; receipt presente al init (24875B, reescrito 20:16:00).
 
+## 14b. Hi-Res en cualquier cuenta con trial (confirmado por ti, 2026-09-23)
+- El mecanismo trial→credencial→streaming es idéntico por cuenta: la credencial es por-cuenta pero el formato y el flujo no cambian. Implicación E2: el trasplante no depende de peculiaridades de una cuenta; el test de amarre (credencial nueva en cuenta vieja) decide si el servidor valida titularidad.
+
 ## 13. Corrección de rumbo: el POST no es load-bearing (2026-09-23)
 - Corrección honesta: vendí renewals acelerados, pero el expiry observado de Apple es +24h (20:17:50→09-24), no minutos. Esperar 4 min podía no traer nada. Los renewals llegarán en horario Apple, no nuestro.
 - Sin el POST no se cae nada. Vía E2-trasplante (v5): el dylib ya corre dentro de la app con su mismo keychain — lee los VALORES de `accessAuthToken/refreshAuthToken` y los guarda en `Documents/session_export_*.json` (init + cada rotación). Respaldado fuera, ese archivo + un restaurador v6 (reinyectar pre-login post-expiración) es el PoC E2 completo sin depender del formato del POST.

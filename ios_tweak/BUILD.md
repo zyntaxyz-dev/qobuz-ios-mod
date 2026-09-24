@@ -1,5 +1,11 @@
 # BUILD — QobuzLogger.dylib (jailed, ESign)
 
+## v6 (actual): dual-mode logger + restaurador E2
+- Instalación normal = solo loguea (v5 completo). La restauración SOLO se dispara si existe `Documents/restore_request.txt` (vacío = último export; con nombre = ese export; con `force` = sobrescribe sesión viva).
+- Guarda: si hay credencial viva y el request no dice `force`, no toca nada (`RESTORE skipped`). Al terminar renombra el request a `restore_done_<epoch>.txt` + snapshot de receipt/defaults/keychain.
+- Resultado por item en log: `RESTORE add|update <servicio> len=… st=0`. Valores jamás en log.
+- Protocolo E2 sin reinstall: 1) backup del export fuera del dispositivo; 2) logout in-app (borra trío del keychain, contenedor intacto); 3) colocar `restore_request.txt` + `session_export_*.json` en Documents vía Filza; 4) relanzar; 5) `RESTORE … added=3` + probar Hi-Res sin login. Variante amarre: mismo con cuenta vieja logueada.
+
 ## v5 (actual): exportador de sesión E2 + cobertura total
 - `EXPORT[init|change] n=… file=session_export_<tag>_<epoch>.json`: lee los VALORES del keychain propio (solo servicios `*qobuz*` y `auth`), base64 a `Documents/`. Al init (baseline) y cada vez que el keychain cambia (rotación por compra/login). El log jamás lleva valores, solo conteos.
 - **Regla de manejo**: ese JSON equivale a la sesión. Respaldar fuera del dispositivo y borrarlo de `Documents` de inmediato. Ignorado en git (`session_export*.json`). V6 (restaurador) lo reinyectará post-expiración para el PoC E2.

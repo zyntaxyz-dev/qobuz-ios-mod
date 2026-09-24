@@ -441,6 +441,88 @@ static void QZExportSession(NSString* tag){
   }@catch(...){ QZLog(@"EXPORT[%@] exception", tag); }
 }
 
+#pragma mark - Restorer (v6: E2 transplant on demand, con guarda anti-sobrescritura)
+
+// Solo actúa si existe Documents/restore_request.txt (vacío = último export;
+// con nombre de archivo = ese export). NUNCA toca una sesión viva salvo que
+// el request contenga la palabra "force". Renombra el request al terminar.
+static BOOL QZHasLiveCredential(void){
+  @try{
+    NSDictionary* q = @{ (id)kSecClass: (id)kSecClassGenericPassword,
+                         (id)kSecReturnAttributes: @YES,
+                         (id)kSecMatchLimit: (__bridge id)kSecMatchLimitAll };
+    CFTypeRef res = NULL;
+    OSStatus st = SecItemCopyMatching((__bridge CFDictionaryRef)q, &res);
+    if(st != errSecSuccess || res == NULL) return NO;
+    BOOL found = NO;
+    @try{
+      for(NSDictionary* a in (__bridge NSArray*)res){
+        NSString* svc = [NSString stringWithFormat:@"%@", a[(id)kSecAttrService] ?: @""];
+        if([svc containsString:@"accessAuthTo"]){ found = YES; break; }
+      }
+    }@catch(...){}
+    CFRelease(res);
+    return found;
+  }@catch(...){ return NO; }
+}
+
+static void QZRestoreIfRequested(void){
+  @try{
+    NSString* req = [QZDocDir() stringByAppendingPathComponent:@"restore_request.txt"];
+    NSFileManager* fm = [NSFileManager defaultManager];
+    if(![fm fileExistsAtPath:req]) return;
+    NSString* want = [[[NSString stringWithContentsOfFile:req encoding:NSUTF8StringEncoding error:nil] ?: @""]
+                      stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    BOOL force = [want rangeOfString:@"force" options:NSCaseInsensitiveSearch].location != NSNotFound;
+    if(QZHasLiveCredential() && !force){
+      QZLog(@"RESTORE skipped (live credential present; add 'force' to request to override)");
+      return; // no se renombra: el usuario decide
+    }
+    NSArray* files = [fm contentsOfDirectoryAtPath:QZDocDir() error:nil];
+    NSMutableArray* cands = [NSMutableArray array];
+    for(NSString* f in files){
+      if([f hasPrefix:@"session_export_"] && [f hasSuffix:@".json"]) [cands addObject:f];
+    }
+    if(!cands.count){ QZLog(@"RESTORE no export files in Documents"); return; }
+    [cands sortUsingSelector:@selector(compare:)];
+    NSString* pick = cands.lastObject;
+    for(NSString* f in cands){ if(want.length && [f isEqualToString:want]){ pick = f; break; } }
+    NSData* j = [NSData dataWithContentsOfFile:[QZDocDir() stringByAppendingPathComponent:pick]];
+    NSDictionary* doc = [NSJSONSerialization JSONObjectWithData:j options:0 error:nil];
+    NSArray* items = doc[@"items"];
+    if(![items isKindOfClass:[NSArray class]] || !items.count){ QZLog(@"RESTORE bad export %@", pick); return; }
+    NSUInteger added = 0, updated = 0, failed = 0;
+    for(NSDictionary* it in items){
+      NSString* svc = it[@"service"];
+      NSString* acct = it[@"account"];
+      NSData* val = [[NSData alloc] initWithBase64EncodedString:it[@"value_b64"] options:0];
+      if(![svc isKindOfClass:[NSString class]] || val.length == 0){ failed++; continue; }
+      NSDictionary* q = @{ (id)kSecClass: (id)kSecClassGenericPassword,
+                           (id)kSecAttrService: svc,
+                           (id)kSecAttrAccount: ([acct isKindOfClass:[NSString class]] ? acct : @"?") };
+      NSMutableDictionary* add = [q mutableCopy];
+      add[(id)kSecValueData] = val;
+      OSStatus st = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
+      NSString* how = @"add";
+      if(st == errSecDuplicateItem){
+        st = SecItemUpdate((__bridge CFDictionaryRef)q, (__bridge CFDictionaryRef)@{ (id)kSecValueData: val });
+        how = @"update";
+      }
+      if(st == errSecSuccess){ if([how isEqualToString:@"add"]) added++; else updated++; }
+      else failed++;
+      QZLog(@"RESTORE %@ %@ len=%lu st=%d", how, svc, (unsigned long)val.length, (int)st);
+    }
+    NSString* done = [QZDocDir() stringByAppendingPathComponent:
+      [NSString stringWithFormat:@"restore_done_%.0f.txt", [[NSDate date] timeIntervalSince1970]]];
+    [fm moveItemAtPath:req toPath:done error:nil];
+    QZLog(@"RESTORE from=%@ added=%lu updated=%lu failed=%lu -> %@", pick,
+          (unsigned long)added, (unsigned long)updated, (unsigned long)failed, [done lastPathComponent]);
+    QZSnapshotReceipt(@"restore");
+    QZDumpUserDefaults(@"restore", YES);
+    QZKeychainProbe(@"restore", YES);
+  }@catch(...){ QZLog(@"RESTORE exception"); }
+}
+
 #pragma mark - Keychain presence probe (v3: solo metadatos, jamás secretos)
 
 static NSString* gKeychainSig = nil;
@@ -500,7 +582,7 @@ static void QZHeartbeat(void){
 
 __attribute__((constructor)) static void qz_init(void){
   @try{
-    QZLog(@"=== QobuzLogger v5 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
+    QZLog(@"=== QobuzLogger v6 init bundle=%@ ===", [[NSBundle mainBundle] bundleIdentifier]);
     QZLog(@"receiptURL=%@", [[[NSBundle mainBundle] appStoreReceiptURL] path]);
 
     // 1. SK1 observer (fallback + conteo de pendientes)
@@ -566,6 +648,8 @@ __attribute__((constructor)) static void qz_init(void){
     QZDumpUserDefaults(@"init", YES);
     QZKeychainProbe(@"init", YES);
     QZExportSession(@"init");
+    // 4b. Restore on demand (v6): solo si hay restore_request.txt
+    QZRestoreIfRequested();
 
     // 5. StoreKit 2 listener (Swift, símbolo opcional: dlsym, sin link duro)
     @try{
@@ -581,6 +665,6 @@ __attribute__((constructor)) static void qz_init(void){
         QZLog(@"heartbeat armed (60s). Reproduce flujo y observa el log crecer.");
       }@catch(...){}
     });
-    QZLog(@"=== QobuzLogger v5 ready (net=%d up=%d tap=%d vc=%d) ===", gNetOK, gUpOK, gTapOK, gVcOK);
+    QZLog(@"=== QobuzLogger v6 ready (net=%d up=%d tap=%d vc=%d) ===", gNetOK, gUpOK, gTapOK, gVcOK);
   }@catch(...){}
 }
