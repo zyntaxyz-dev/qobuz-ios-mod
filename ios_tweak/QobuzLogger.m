@@ -83,11 +83,26 @@ static NSString* QZScrubBody(NSString* body){
     return m;
   }@catch(...){ return @"(scrub-fail)"; }
 }
+// Enmascara secretos en query params de URLs (hmac=, token=...) — el matching
+// de QZShouldLogURL sigue sobre la URL cruda; solo la visualización se redacta.
+static NSString* QZScrubURL(NSURL* u){
+  NSString* s = u.absoluteString ?: @"?";
+  @try{
+    static NSRegularExpression* rx = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+      rx = [NSRegularExpression regularExpressionWithPattern:@"(hmac|token|sig|auth)=([^&\\s]+)"
+                                                     options:NSRegularExpressionCaseInsensitive error:nil];
+    });
+    // NOTA: etsp (expiry) se deja visible a propósito: es diagnóstico, no secreto.
+    });
+    return [rx stringByReplacingMatchesInString:s options:0 range:NSMakeRange(0, s.length) withTemplate:@"$1=***"];
+  }@catch(...){ return s; }
+}
 
 #pragma mark - URL filter
 
-static BOOL QZShouldLogURL(NSURL* u){
-  if(!u) return NO;
+static BOOL QZShouldLogURL(NSURL* u){  if(!u) return NO;
   NSString* s = u.absoluteString;
   if(!s) return NO;
   return [s containsString:@"appStore"] || [s containsString:@"offerEligibility"] ||
@@ -181,7 +196,7 @@ static void QZLogResponse(NSURLRequest* req, NSData* d, NSURLResponse* r){
     } else if(d) {
       body = [NSString stringWithFormat:@"(large %luB, skipped)", (unsigned long)d.length];
     }
-    QZLog(@"NET-RESP %@ -> %ld %@", req.URL.absoluteString, code, body);
+    QZLog(@"NET-RESP %@ -> %ld %@", QZScrubURL(req.URL), code, body);
   }@catch(...){}
 }
 
@@ -192,13 +207,13 @@ static NSURLSessionDataTask* qz_dataTaskCH(id self, SEL _cmd, NSURLRequest* req,
   if(QZIsNoise(req.URL)){ __sync_fetch_and_add(&gNoiseCount, 1); return gOrigDataTaskCH(self, _cmd, req, comp); }
   @try{
     if(QZShouldLogURL(req.URL)){
-      QZLog(@"NET %@ %@ bodylen=%lu", req.HTTPMethod ?: @"?", req.URL.absoluteString, (unsigned long)req.HTTPBody.length);
+      QZLog(@"NET %@ %@ bodylen=%lu", req.HTTPMethod ?: @"?", QZScrubURL(req.URL), (unsigned long)req.HTTPBody.length);
     }
   }@catch(...){}
   void(^wrapped)(NSData*,NSURLResponse*,NSError*) = ^(NSData* d, NSURLResponse* r, NSError* e){
     @try{
       if(QZShouldLogURL(req.URL)) QZLogResponse(req, d, r);
-      if(e && QZShouldLogURL(req.URL)) QZLog(@"NET-ERR %@ %@", req.URL.absoluteString, e);
+      if(e && QZShouldLogURL(req.URL)) QZLog(@"NET-ERR %@ %@", QZScrubURL(req.URL), e);
     }@catch(...){}
     if(comp) comp(d, r, e);
   };
@@ -212,7 +227,7 @@ static NSURLSessionDataTask* qz_dataTaskPlain(id self, SEL _cmd, NSURLRequest* r
   if(!gOrigDataTaskPlain) return nil;
   if(QZIsNoise(req.URL)){ __sync_fetch_and_add(&gNoiseCount, 1); return gOrigDataTaskPlain(self, _cmd, req); }
   @try{
-    if(QZShouldLogURL(req.URL)) QZLog(@"NET-CREATE %@ %@", req.HTTPMethod ?: @"?", req.URL.absoluteString);
+    if(QZShouldLogURL(req.URL)) QZLog(@"NET-CREATE %@ %@", req.HTTPMethod ?: @"?", QZScrubURL(req.URL));
   }@catch(...){}
   return gOrigDataTaskPlain(self, _cmd, req);
 }
@@ -227,14 +242,14 @@ static NSURLSessionUploadTask* qz_uploadData(id self, SEL _cmd, NSURLRequest* re
   if(QZIsNoise(req.URL)) return gOrigUploadData(self, _cmd, req, body, comp);
   @try{
     if(QZShouldLogURL(req.URL)){
-      QZLog(@"NET-UP %@ %@ bodylen=%lu", req.HTTPMethod ?: @"?", req.URL.absoluteString,
+      QZLog(@"NET-UP %@ %@ bodylen=%lu", req.HTTPMethod ?: @"?", QZScrubURL(req.URL),
             (unsigned long)(req.HTTPBody.length + (body ? body.length : 0)));
     }
   }@catch(...){}
   void(^wrapped)(NSData*,NSURLResponse*,NSError*) = ^(NSData* d, NSURLResponse* r, NSError* e){
     @try{
       if(QZShouldLogURL(req.URL) && !QZIsNoise(req.URL)) QZLogResponse(req, d, r);
-      if(e && QZShouldLogURL(req.URL)) QZLog(@"NET-ERR %@ %@", req.URL.absoluteString, e);
+      if(e && QZShouldLogURL(req.URL)) QZLog(@"NET-ERR %@ %@", QZScrubURL(req.URL), e);
     }@catch(...){}
     if(comp) comp(d, r, e);
   };
@@ -248,7 +263,7 @@ static NSURLSessionUploadTask* qz_uploadFile(id self, SEL _cmd, NSURLRequest* re
   if(!gOrigUploadFile) return nil;
   if(QZIsNoise(req.URL)) return gOrigUploadFile(self, _cmd, req, furl, comp);
   @try{
-    if(QZShouldLogURL(req.URL)) QZLog(@"NET-UPFILE %@ %@ file=%@", req.HTTPMethod ?: @"?", req.URL.absoluteString, furl.lastPathComponent ?: @"?");
+    if(QZShouldLogURL(req.URL)) QZLog(@"NET-UPFILE %@ %@ file=%@", req.HTTPMethod ?: @"?", QZScrubURL(req.URL), furl.lastPathComponent ?: @"?");
   }@catch(...){}
   void(^wrapped)(NSData*,NSURLResponse*,NSError*) = ^(NSData* d, NSURLResponse* r, NSError* e){
     @try{
