@@ -95,7 +95,6 @@ static NSString* QZScrubURL(NSURL* u){
                                                      options:NSRegularExpressionCaseInsensitive error:nil];
     });
     // NOTA: etsp (expiry) se deja visible a propósito: es diagnóstico, no secreto.
-    });
     return [rx stringByReplacingMatchesInString:s options:0 range:NSMakeRange(0, s.length) withTemplate:@"$1=***"];
   }@catch(...){ return s; }
 }
