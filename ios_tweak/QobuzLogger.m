@@ -15,6 +15,11 @@
 static BOOL gNetOK = NO, gUpOK = NO, gTapOK = NO, gVcOK = NO;
 // Cobertura: prueba de que vemos TODO el tráfico (v5)
 static unsigned long gTotalTasks = 0;
+// Forward declarations (el restaurador v6 llama helpers definidos más abajo)
+static void QZSnapshotReceipt(NSString* tag);
+static void QZDumpUserDefaults(NSString* tag, BOOL force);
+static void QZKeychainProbe(NSString* tag, BOOL force);
+static void QZExportSession(NSString* tag);
 
 #pragma mark - Base logger
 
@@ -471,8 +476,9 @@ static void QZRestoreIfRequested(void){
     NSString* req = [QZDocDir() stringByAppendingPathComponent:@"restore_request.txt"];
     NSFileManager* fm = [NSFileManager defaultManager];
     if(![fm fileExistsAtPath:req]) return;
-    NSString* want = [[[NSString stringWithContentsOfFile:req encoding:NSUTF8StringEncoding error:nil] ?: @""]
-                      stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    NSString* reqContent = [NSString stringWithContentsOfFile:req encoding:NSUTF8StringEncoding error:nil];
+    if(!reqContent) reqContent = @"";
+    NSString* want = [reqContent stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     BOOL force = [want rangeOfString:@"force" options:NSCaseInsensitiveSearch].location != NSNotFound;
     if(QZHasLiveCredential() && !force){
       QZLog(@"RESTORE skipped (live credential present; add 'force' to request to override)");
